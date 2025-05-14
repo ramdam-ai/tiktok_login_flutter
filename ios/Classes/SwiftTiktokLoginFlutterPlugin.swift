@@ -64,7 +64,7 @@ public class SwiftTiktokLoginFlutterPlugin: NSObject, FlutterPlugin {
 
             if authResponse.errorCode == .noError {
                 // Success - access auth code which is now available as 'code' property
-                result(authResponse.code)
+                result(authResponse.authCode)
             } else {
                 // Error
                 result(FlutterError(
