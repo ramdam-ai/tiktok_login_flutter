@@ -36,8 +36,7 @@ public class SwiftTiktokLoginFlutterPlugin: NSObject, FlutterPlugin {
         }
 
         guard let args = call.arguments as? [String: Any],
-              let scope = args["scope"] as? String,
-              let redirectUrl = args["redirectUrl"] as? String else {
+              let scope = args["scope"] as? String else {
             result(FlutterError(code: "INVALID_ARGUMENTS", message: "Invalid or missing arguments", details: nil))
             return
         }
@@ -45,22 +44,27 @@ public class SwiftTiktokLoginFlutterPlugin: NSObject, FlutterPlugin {
         // Split by comma into a list
         let scopeList = scope.components(separatedBy: ",")
 
-        // Create auth request
-        let authRequest = TikTokAuthRequest(scopes: scopeList, redirectURI: redirectUrl)
+        // Create URL for redirect
+        // Using the key "redirectUrl" as specified in your Flutter implementation
+        let redirectUrl = args["redirectUrl"] as? String ?? "https://www.example.com/path"
+
+        // Create auth request - Note: TikTokAuthRequest expects Set<String> for scopes
+        let scopeSet = Set(scopeList)
+        let authRequest = TikTokAuthRequest(scopes: scopeSet, redirectURI: redirectUrl)
 
         // Save a reference to the request to ensure it stays alive during the callback
         self.pendingAuthRequest = authRequest
 
-        // Send the request
-        authRequest.send { [weak self] response in
+        // Send the request with explicit type annotation for response
+        authRequest.send { [weak self] (response: TikTokResponse) in
             guard let authResponse = response as? TikTokAuthResponse else {
                 result(FlutterError(code: "INVALID_RESPONSE", message: "Invalid response from TikTok", details: nil))
                 return
             }
 
             if authResponse.errorCode == .noError {
-                // Success
-                result(authResponse.code)
+                // Success - access auth code which is now available as 'authCode' property
+                result(authResponse.authCode)
             } else {
                 // Error
                 result(FlutterError(
