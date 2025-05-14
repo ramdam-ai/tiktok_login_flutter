@@ -1,16 +1,18 @@
 import Flutter
 import UIKit
-import TikTokOpenSDK
+import TikTokOpenSDKCore
+import TikTokOpenAuthSDK
 
 public class SwiftTiktokLoginFlutterPlugin: NSObject, FlutterPlugin {
+    private var pendingAuthRequest: TikTokAuthRequest?
+
     public static func register(with registrar: FlutterPluginRegistrar) {
         let channel = FlutterMethodChannel(name: "tiktok_login_flutter", binaryMessenger: registrar.messenger())
-        let instance: SwiftTiktokLoginFlutterPlugin = SwiftTiktokLoginFlutterPlugin()
+        let instance = SwiftTiktokLoginFlutterPlugin()
         registrar.addMethodCallDelegate(instance, channel: channel)
         registrar.addApplicationDelegate(instance)
-        
     }
-    
+
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         switch call.method {
         case "initializeTiktokLogin":
@@ -19,81 +21,97 @@ public class SwiftTiktokLoginFlutterPlugin: NSObject, FlutterPlugin {
             self.authorize(call: call, result: result)
         default:
             result(FlutterMethodNotImplemented)
-            
-            
         }
     }
-    
+
     private func initializeTiktokLogin(call: FlutterMethodCall, result: @escaping FlutterResult) {
+        // TikTok OpenSDK auto-registers client key from Info.plist
         return result(true)
     }
-    
+
     private func authorize(call: FlutterMethodCall, result: @escaping FlutterResult) {
-        
-        
-        let viewController: UIViewController =
-            (UIApplication.shared.delegate?.window??.rootViewController)!;
-        
-        let args = call.arguments as! [String: Any]
-        let scope = args["scope"] as! String
-        
-        // split by comma into a list
+        guard let viewController = UIApplication.shared.delegate?.window??.rootViewController else {
+            result(FlutterError(code: "VIEW_CONTROLLER_NOT_FOUND", message: "Could not find root view controller", details: nil))
+            return
+        }
+
+        guard let args = call.arguments as? [String: Any],
+              let scope = args["scope"] as? String,
+              let redirectUrl = args["redirectUrl"] as? String else {
+            result(FlutterError(code: "INVALID_ARGUMENTS", message: "Invalid or missing arguments", details: nil))
+            return
+        }
+
+        // Split by comma into a list
         let scopeList = scope.components(separatedBy: ",")
-        
-        let scopesSet = NSOrderedSet(array:scopeList)
-        let request = TikTokOpenSDKAuthRequest()
-        request.permissions = scopesSet
-        
-        /* STEP 2 */
-        request.send(viewController, completion: { resp -> Void in
-            /* STEP 3 */
-            if resp.errCode == TikTokOpenSDKErrorCode.success  {
-                /* STEP 3.a */
-                
-                result(resp.code)
-                
-                
-            } else {
-                result(FlutterError(code: "AUTHORIZATION_REQUEST_FAILED", message: resp.errString, details: nil))
+
+        // Create auth request
+        let authRequest = TikTokAuthRequest(scopes: scopeList, redirectURI: redirectUrl)
+
+        // Save a reference to the request to ensure it stays alive during the callback
+        self.pendingAuthRequest = authRequest
+
+        // Send the request
+        authRequest.send { [weak self] response in
+            guard let authResponse = response as? TikTokAuthResponse else {
+                result(FlutterError(code: "INVALID_RESPONSE", message: "Invalid response from TikTok", details: nil))
+                return
             }
-        })
+
+            if authResponse.errorCode == .noError {
+                // Success
+                result(authResponse.code)
+            } else {
+                // Error
+                result(FlutterError(
+                    code: "AUTHORIZATION_REQUEST_FAILED",
+                    message: authResponse.errorDescription ?? authResponse.error ?? "Unknown error",
+                    details: nil
+                ))
+            }
+
+            // Clear the reference
+            self?.pendingAuthRequest = nil
+        }
     }
-    
-    
-    // app delegate functions
-    //
-    //
-    
-    public func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [AnyHashable : Any] = [:]) -> Bool {
-        
-        TikTokOpenSDKApplicationDelegate.sharedInstance().application(application, didFinishLaunchingWithOptions: launchOptions)
-        
+
+    // MARK: - App Delegate Methods
+
+    public func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [AnyHashable: Any] = [:]) -> Bool {
+        // No specific initialization needed for the new SDK
         return true
     }
-    
-    public func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] ) -> Bool {
-        
-        guard let sourceApplication = options[UIApplication.OpenURLOptionsKey.sourceApplication] as? String,
-              let annotation = options[UIApplication.OpenURLOptionsKey.annotation] else {
-            return false
-        }
-        
-        if TikTokOpenSDKApplicationDelegate.sharedInstance().application(app, open: url, sourceApplication: sourceApplication, annotation: annotation) {
+
+    public func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any]) -> Bool {
+        // Use the new TikTokURLHandler to handle the URL
+        if TikTokURLHandler.handleOpenURL(url) {
             return true
         }
         return false
     }
-    
+
     public func application(_ application: UIApplication, open url: URL, sourceApplication: String, annotation: Any) -> Bool {
-        if TikTokOpenSDKApplicationDelegate.sharedInstance().application(application, open: url, sourceApplication: sourceApplication, annotation: annotation) {
+        // Use the new TikTokURLHandler to handle the URL
+        if TikTokURLHandler.handleOpenURL(url) {
             return true
         }
         return false
     }
-    
-    public  func application(_ application: UIApplication, handleOpen url: URL) -> Bool {
-        if TikTokOpenSDKApplicationDelegate.sharedInstance().application(application, open: url, sourceApplication: nil, annotation: "") {
+
+    public func application(_ application: UIApplication, handleOpen url: URL) -> Bool {
+        // Use the new TikTokURLHandler to handle the URL
+        if TikTokURLHandler.handleOpenURL(url) {
             return true
+        }
+        return false
+    }
+
+    public func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([Any]) -> Void) -> Bool {
+        // Handle Universal Links for iOS 12+
+        if userActivity.activityType == NSUserActivityTypeBrowsingWeb {
+            if let url = userActivity.webpageURL, TikTokURLHandler.handleOpenURL(url) {
+                return true
+            }
         }
         return false
     }
