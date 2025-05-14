@@ -56,15 +56,15 @@ public class SwiftTiktokLoginFlutterPlugin: NSObject, FlutterPlugin {
         self.pendingAuthRequest = authRequest
 
         // Send the request with explicit type annotation for response
-        authRequest.send { [weak self] (response: TikTokResponse) in
+        authRequest.send { [weak self] (response: TikTokBaseResponse) in
             guard let authResponse = response as? TikTokAuthResponse else {
                 result(FlutterError(code: "INVALID_RESPONSE", message: "Invalid response from TikTok", details: nil))
                 return
             }
 
             if authResponse.errorCode == .noError {
-                // Success - access auth code which is now available as 'authCode' property
-                result(authResponse.authCode)
+                // Success - access auth code which is now available as 'code' property
+                result(authResponse.code)
             } else {
                 // Error
                 result(FlutterError(
