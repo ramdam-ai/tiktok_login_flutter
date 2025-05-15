@@ -54,6 +54,8 @@ public class SwiftTiktokLoginFlutterPlugin: NSObject, FlutterPlugin {
 
         // Save a reference to the request to ensure it stays alive during the callback
         self.pendingAuthRequest = authRequest
+        let codeVerifier = authRequest.pkce.codeVerifier
+        let codeChallenge = authRequest.pkce.codeChallenge
 
         // Send the request with explicit type annotation for response
         authRequest.send { [weak self] (response: TikTokBaseResponse) in
@@ -64,7 +66,12 @@ public class SwiftTiktokLoginFlutterPlugin: NSObject, FlutterPlugin {
 
             if authResponse.errorCode == .noError {
                 // Success - access auth code which is now available as 'code' property
-                result(authResponse.authCode)
+                let resultMap: [String: String?] = [
+                            "authCode": authResponse.authCode,
+                            "codeVerifier": codeVerifier,
+                            "codeChallenge": codeChallenge
+                        ]
+                        result(resultMap)
             } else {
                 // Error
                 result(FlutterError(
