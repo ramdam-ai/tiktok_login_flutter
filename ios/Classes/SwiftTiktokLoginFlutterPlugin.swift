@@ -35,8 +35,8 @@ public class SwiftTiktokLoginFlutterPlugin: NSObject, FlutterPlugin {
             return
         }
 
-        guard let args = call.arguments as ? [String: Any],
-        let scope = args["scope"] as ?String else {
+        guard let args = call.arguments as? [String: Any],
+        let scope = args["scope"] as? String else {
             result(FlutterError(code: "INVALID_ARGUMENTS", message: "Invalid or missing arguments", details: nil))
             return
         }
@@ -46,7 +46,7 @@ public class SwiftTiktokLoginFlutterPlugin: NSObject, FlutterPlugin {
 
         // Create URL for redirect
         // Using the key "redirectUrl" as specified in your Flutter implementation
-        let redirectUrl = args["redirectUrl"] as ?String ?? "https://www.example.com/path"
+        let redirectUrl = args["redirectUrl"] as? String ?? "https://www.example.com/path"
 
         // Create auth request - Note: TikTokAuthRequest expects Set<String> for scopes
         let scopeSet = Set(scopeList)
@@ -58,9 +58,8 @@ public class SwiftTiktokLoginFlutterPlugin: NSObject, FlutterPlugin {
         let codeChallenge = authRequest.pkce.codeChallenge
 
         // Send the request with explicit type annotation for response
-        authRequest.send {
-            [weak self] (response: TikTokBaseResponse) in
-            guard let authResponse = response as ?TikTokAuthResponse else {
+        authRequest.send { [weak self] (response: TikTokBaseResponse) in
+            guard let authResponse = response as? TikTokAuthResponse else {
                 result(FlutterError(code: "INVALID_RESPONSE", message: "Invalid response from TikTok", details: nil))
                 return
             }
@@ -94,7 +93,7 @@ public class SwiftTiktokLoginFlutterPlugin: NSObject, FlutterPlugin {
         return true
     }
 
-    public func application(_ app: UIApplication, openurl: URL, options: [UIApplication.OpenURLOptionsKey: Any]) -> Bool {
+    public func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any]) -> Bool {
         // Use the new TikTokURLHandler to handle the URL
         if TikTokURLHandler.handleOpenURL(url) {
             return true
@@ -102,7 +101,7 @@ public class SwiftTiktokLoginFlutterPlugin: NSObject, FlutterPlugin {
         return false
     }
 
-    public func application(_ application: UIApplication, openurl: URL, sourceApplication: String, annotation: Any) -> Bool {
+    public func application(_ application: UIApplication, open url: URL, sourceApplication: String, annotation: Any) -> Bool {
         // Use the new TikTokURLHandler to handle the URL
         if TikTokURLHandler.handleOpenURL(url) {
             return true
@@ -118,7 +117,7 @@ public class SwiftTiktokLoginFlutterPlugin: NSObject, FlutterPlugin {
         return false
     }
 
-    public func application(_ application: UIApplication, continueuserActivity: NSUserActivity, restorationHandler: @escaping ([Any]) -> Void) -> Bool {
+    public func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([Any]) -> Void) -> Bool {
         // Handle Universal Links for iOS 12+
         if userActivity.activityType == NSUserActivityTypeBrowsingWeb {
             if let url = userActivity.webpageURL, TikTokURLHandler.handleOpenURL(url) {
@@ -131,29 +130,29 @@ public class SwiftTiktokLoginFlutterPlugin: NSObject, FlutterPlugin {
 
 extension UIApplication {
     /// Recursively finds the top-most view controller (handling TabBars, NavControllers, and Modals)
-
     class func topViewController(controller: UIViewController? = nil) -> UIViewController? {
         // 1. Get the root if not provided
         let root = controller ?? {
-            if #available (iOS 13.0, *) {
-                return UIApplication.shared.connectedScenes.filter {
-                    $0.activationState == .foregroundActive
-                }.compactMap {
-                    $0 as ?UIWindowScene
-                }.first ?.windows.filter {
-                    $0.isKeyWindow
-                }.first ?.rootViewController
+            if #available(iOS 13.0, *) {
+                return UIApplication.shared.connectedScenes
+                .filter { $0.activationState == .foregroundActive }
+                .compactMap { $0 as? UIWindowScene }
+                .first?
+                .windows
+                .filter { $0.isKeyWindow }
+                .first?
+                .rootViewController
             } else {
-                return UIApplication.shared.keyWindow ?.rootViewController
+                return UIApplication.shared.keyWindow?.rootViewController
             }
         }()
 
         // 2. Handle specific container types
-        if let navigationController = root as ?UINavigationController {
+        if let navigationController = root as? UINavigationController {
             return topViewController(controller: navigationController.visibleViewController)
         }
 
-        if let tabController = root as ?UITabBarController {
+        if let tabController = root as? UITabBarController {
             if let selected = tabController.selectedViewController {
                 return topViewController(controller: selected)
             }
